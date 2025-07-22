@@ -1,49 +1,73 @@
 const WebSocket = require('ws');
-const http = require('http');
-const port = process.env.PORT || 3000;
+const server = new WebSocket.Server({ port: 3000 });
 
-const server = http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end('Walkie-Talkie WebSocket server is running.');
-});
+const channels = {}; // { channelName: { users: Map<WebSocket, name> } }
 
-const wss = new WebSocket.Server({ server });
+function broadcast(channel, message, except = null) {
+  if (!channels[channel]) return;
+  for (const [client, _] of channels[channel].users) {
+    if (client.readyState === WebSocket.OPEN && client !== except) {
+      client.send(JSON.stringify(message));
+    }
+  }
+}
 
-const channels = {};  // { channelName: [socket1, socket2, ...] }
+server.on('connection', (ws) => {
+  let currentChannel = null;
+  let userName = null;
 
-wss.on('connection', (socket) => {
-  let joinedChannel = null;
-
-  socket.on('message', (msg) => {
+  ws.on('message', (msg) => {
+    let data;
     try {
-      const data = JSON.parse(msg);
+      data = JSON.parse(msg);
+    } catch (err) {
+      console.error("Invalid message", err);
+      return;
+    }
 
-      if (data.type === 'join') {
-        joinedChannel = data.channel;
-        if (!channels[joinedChannel]) channels[joinedChannel] = [];
-        channels[joinedChannel].push(socket);
-        console.log(`User joined channel: ${joinedChannel}`);
+    // 🔹 User joining a channel
+    if (data.type === 'join') {
+      currentChannel = data.channel;
+      userName = data.name;
+
+      if (!channels[currentChannel]) {
+        channels[currentChannel] = { users: new Map() };
       }
 
-      if (data.type === 'audio' && joinedChannel && channels[joinedChannel]) {
-        channels[joinedChannel].forEach(client => {
-          if (client !== socket && client.readyState === WebSocket.OPEN) {
-            client.send(msg);
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Error handling message:', e);
+      channels[currentChannel].users.set(ws, userName);
+
+      // 🔔 Notify everyone in the channel
+      broadcast(currentChannel, {
+        type: 'userlist',
+        users: Array.from(channels[currentChannel].users.values())
+      });
+    }
+
+    // 🎙️ Voice message
+    if (data.type === 'voice' && currentChannel) {
+      broadcast(currentChannel, {
+        type: 'voice',
+        name: userName,
+        audio: data.audio
+      }, except = ws);
     }
   });
 
-  socket.on('close', () => {
-    if (joinedChannel && channels[joinedChannel]) {
-      channels[joinedChannel] = channels[joinedChannel].filter(s => s !== socket);
+  // 🔻 Handle disconnect
+  ws.on('close', () => {
+    if (currentChannel && channels[currentChannel]) {
+      channels[currentChannel].users.delete(ws);
+      broadcast(currentChannel, {
+        type: 'userlist',
+        users: Array.from(channels[currentChannel].users.values())
+      });
+
+      // Clean up empty channels
+      if (channels[currentChannel].users.size === 0) {
+        delete channels[currentChannel];
+      }
     }
   });
 });
 
-server.listen(port, () => {
-  console.log(`WebSocket server running on port ${port}`);
-});
+console.log('✅ WebSocket Server running on ws://localhost:3000');
