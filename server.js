@@ -1,9 +1,12 @@
-// server.js
 const WebSocket = require('ws');
 const http = require('http');
 const port = process.env.PORT || 3000;
 
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Walkie-Talkie WebSocket server is running.');
+});
+
 const wss = new WebSocket.Server({ server });
 
 const channels = {};  // { channelName: [socket1, socket2, ...] }
