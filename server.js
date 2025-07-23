@@ -1,73 +1,42 @@
-const WebSocket = require('ws');
-const server = new WebSocket.Server({ port: 3000 });
+const express = require('express');
+const http = require('http');
+const { Server } = require("socket.io");
+const cors = require('cors');
 
-const channels = {}; // { channelName: { users: Map<WebSocket, name> } }
+const app = express();
+app.use(cors()); // Use cors middleware
 
-function broadcast(channel, message, except = null) {
-  if (!channels[channel]) return;
-  for (const [client, _] of channels[channel].users) {
-    if (client.readyState === WebSocket.OPEN && client !== except) {
-      client.send(JSON.stringify(message));
-    }
+const server = http.createServer(app);
+
+// Make sure to configure CORS correctly for your Netlify URL
+const io = new Server(server, {
+  cors: {
+    origin: "https://walkie-talkie-pwa.netlify.app", // Your Netlify frontend URL
+    methods: ["GET", "POST"]
   }
-}
+});
 
-server.on('connection', (ws) => {
-  let currentChannel = null;
-  let userName = null;
+const PORT = process.env.PORT || 3001;
 
-  ws.on('message', (msg) => {
-    let data;
-    try {
-      data = JSON.parse(msg);
-    } catch (err) {
-      console.error("Invalid message", err);
-      return;
-    }
+app.get('/', (req, res) => {
+  res.send('Walkie-Talkie server is running!');
+});
 
-    // 🔹 User joining a channel
-    if (data.type === 'join') {
-      currentChannel = data.channel;
-      userName = data.name;
+io.on('connection', (socket) => {
+  console.log(`A user connected with socket ID: ${socket.id}`);
 
-      if (!channels[currentChannel]) {
-        channels[currentChannel] = { users: new Map() };
-      }
-
-      channels[currentChannel].users.set(ws, userName);
-
-      // 🔔 Notify everyone in the channel
-      broadcast(currentChannel, {
-        type: 'userlist',
-        users: Array.from(channels[currentChannel].users.values())
-      });
-    }
-
-    // 🎙️ Voice message
-    if (data.type === 'voice' && currentChannel) {
-      broadcast(currentChannel, {
-        type: 'voice',
-        name: userName,
-        audio: data.audio
-      }, except = ws);
-    }
+  // Listen for a 'hello' message from the client
+  socket.on('hello', (msg) => {
+    console.log('Message from client: ' + msg);
+    // Send a message back to the client that sent the message
+    socket.emit('response', 'Hello from the server!');
   });
 
-  // 🔻 Handle disconnect
-  ws.on('close', () => {
-    if (currentChannel && channels[currentChannel]) {
-      channels[currentChannel].users.delete(ws);
-      broadcast(currentChannel, {
-        type: 'userlist',
-        users: Array.from(channels[currentChannel].users.values())
-      });
-
-      // Clean up empty channels
-      if (channels[currentChannel].users.size === 0) {
-        delete channels[currentChannel];
-      }
-    }
+  socket.on('disconnect', () => {
+    console.log(`User with socket ID: ${socket.id} disconnected`);
   });
 });
 
-console.log('✅ WebSocket Server running on ws://localhost:3000');
+server.listen(PORT, () => {
+  console.log(`Server is listening on port ${PORT}`);
+});
