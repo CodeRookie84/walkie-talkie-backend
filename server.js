@@ -37,8 +37,8 @@ io.on('connection', (socket) => {
   });
 
   // This part remains the same
-  socket.on('audio-message', ({ channel, audioChunk }) => {
-    socket.to(channel).broadcast.emit('audio-message-from-server', { channel, audioChunk });
+  socket.on('audio-message', (channel, audioChunk) => {
+    socket.to(channel).broadcast.emit('audio-message-from-server', channel, audioChunk);
   });
 
   socket.on('disconnect', () => {
