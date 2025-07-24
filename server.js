@@ -14,15 +14,13 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   },
   pingTimeout: 60000,
-  
-  // THE DEFINITIVE FIX: Allow larger message payloads for audio data
   maxHttpBufferSize: 1e7 // 10 MB
 });
 
 const PORT = process.env.PORT || 3001;
 
 app.get('/', (req, res) => {
-  res.send('Multi-channel server with increased payload size is running!');
+  res.send('Multi-channel server with diagnostics is running!');
 });
 
 io.on('connection', (socket) => {
@@ -30,21 +28,27 @@ io.on('connection', (socket) => {
 
   socket.on('join-channel', (channelId) => {
     socket.join(channelId);
-    console.log(`User ${socket.id} JOINED channel: ${channelId}`);
+    console.log(`DIAGNOSTIC: User ${socket.id} JOINED channel: ${channelId}`);
   });
   
   socket.on('leave-channel', (channelId) => {
     socket.leave(channelId);
-    console.log(`User ${socket.id} LEFT channel: ${channelId}`);
+    console.log(`DIAGNOSTIC: User ${socket.id} LEFT channel: ${channelId}`);
   });
 
+  // --- THIS IS THE CRITICAL DIAGNOSTIC SECTION ---
   socket.on('audio-message', (channel, audioChunk) => {
-    // Broadcast to the correct room
-    socket.to(channel).broadcast.emit('audio-message-from-server', channel, audioChunk);
-  });
+    // DIAGNOSTIC 1: Confirm the server received the message.
+    console.log(`DIAGNOSTIC: Received 'audio-message' from ${socket.id} for channel '${channel}'. Audio chunk size: ${audioChunk.length} bytes.`);
 
-  socket.on('disconnect', () => {
-    console.log(`User ${socket.id} disconnected`);
+    // DIAGNOSTIC 2: Confirm the server is attempting to broadcast.
+    socket.to(channel).broadcast.emit('audio-message-from-server', channel, audioChunk);
+    console.log(`DIAGNOSTIC: Broadcasting audio from ${socket.id} to everyone else in channel '${channel}'.`);
+  });
+  // --- END OF DIAGNOSTIC SECTION ---
+
+  socket.on('disconnect', (reason) => {
+    console.log(`User ${socket.id} disconnected. Reason: ${reason}`);
   });
 });
 
