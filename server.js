@@ -13,15 +13,16 @@ const io = new Server(server, {
     origin: "https://walkie-talkie-pwa.netlify.app",
     methods: ["GET", "POST"]
   },
-  // NEW: Add longer timeouts to prevent disconnection during mic activation
-  pingTimeout: 60000, // The server will wait 60 seconds for a pong response
-  pingInterval: 25000 // The server will send a ping every 25 seconds
+  pingTimeout: 60000,
+  
+  // THE DEFINITIVE FIX: Allow larger message payloads for audio data
+  maxHttpBufferSize: 1e7 // 10 MB
 });
 
 const PORT = process.env.PORT || 3001;
 
 app.get('/', (req, res) => {
-  res.send('Multi-channel server with subscriptions is running!');
+  res.send('Multi-channel server with increased payload size is running!');
 });
 
 io.on('connection', (socket) => {
@@ -37,8 +38,8 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} LEFT channel: ${channelId}`);
   });
 
-  // We are using the corrected version with two arguments
   socket.on('audio-message', (channel, audioChunk) => {
+    // Broadcast to the correct room
     socket.to(channel).broadcast.emit('audio-message-from-server', channel, audioChunk);
   });
 
