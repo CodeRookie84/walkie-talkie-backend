@@ -18,20 +18,26 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3001;
 
 app.get('/', (req, res) => {
-  res.send('Walkie-Talkie server is running and ready for audio!');
+  res.send('Multi-channel walkie-talkie server is running!');
 });
 
 io.on('connection', (socket) => {
-  console.log(`A user connected with socket ID: ${socket.id}`);
+  console.log(`A user connected: ${socket.id}`);
 
-  // NEW: Listen for an audio message from a client
-  socket.on('audio-message', (audioChunk) => {
-    // Broadcast the audio chunk to all OTHER connected clients
-    socket.broadcast.emit('audio-message-from-server', audioChunk);
+  // NEW: A client joins a specific channel.
+  socket.on('join-channel', (channelId) => {
+    socket.join(channelId);
+    console.log(`User ${socket.id} joined channel: ${channelId}`);
+  });
+
+  // MODIFIED: The audio message now includes the channel it belongs to.
+  socket.on('audio-message', ({ channel, audioChunk }) => {
+    // Broadcast the audio chunk ONLY to clients in that specific channel.
+    socket.to(channel).broadcast.emit('audio-message-from-server', { channel, audioChunk });
   });
 
   socket.on('disconnect', () => {
-    console.log(`User with socket ID: ${socket.id} disconnected`);
+    console.log(`User ${socket.id} disconnected`);
   });
 });
 
