@@ -4,11 +4,10 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 
 const app = express();
-app.use(cors()); // Use cors middleware
+app.use(cors());
 
 const server = http.createServer(app);
 
-// Make sure to configure CORS correctly for your Netlify URL
 const io = new Server(server, {
   cors: {
     origin: "https://walkie-talkie-pwa.netlify.app", // Your Netlify frontend URL
@@ -19,17 +18,16 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3001;
 
 app.get('/', (req, res) => {
-  res.send('Walkie-Talkie server is running!');
+  res.send('Walkie-Talkie server is running and ready for audio!');
 });
 
 io.on('connection', (socket) => {
   console.log(`A user connected with socket ID: ${socket.id}`);
 
-  // Listen for a 'hello' message from the client
-  socket.on('hello', (msg) => {
-    console.log('Message from client: ' + msg);
-    // Send a message back to the client that sent the message
-    socket.emit('response', 'Hello from the server!');
+  // NEW: Listen for an audio message from a client
+  socket.on('audio-message', (audioChunk) => {
+    // Broadcast the audio chunk to all OTHER connected clients
+    socket.broadcast.emit('audio-message-from-server', audioChunk);
   });
 
   socket.on('disconnect', () => {
