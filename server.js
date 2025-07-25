@@ -5,7 +5,6 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
-
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -14,44 +13,37 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   },
   pingTimeout: 60000,
-  maxHttpBufferSize: 1e7 // 10 MB
+  maxHttpBufferSize: 1e7
 });
 
 const PORT = process.env.PORT || 3001;
-
-app.get('/', (req, res) => {
-  res.send('Multi-channel server with diagnostics is running!');
-});
+app.get('/', (req, res) => res.send('Walkie-talkie server is running!'));
 
 io.on('connection', (socket) => {
-  console.log(`A user connected: ${socket.id}`);
+  console.log(`User connected: ${socket.id}`);
 
   socket.on('join-channel', (channelId) => {
     socket.join(channelId);
-    console.log(`DIAGNOSTIC: User ${socket.id} JOINED channel: ${channelId}`);
+    console.log(`User ${socket.id} JOINED channel: ${channelId}`);
   });
   
   socket.on('leave-channel', (channelId) => {
     socket.leave(channelId);
-    console.log(`DIAGNOSTIC: User ${socket.id} LEFT channel: ${channelId}`);
+    console.log(`User ${socket.id} LEFT channel: ${channelId}`);
   });
 
-  // --- THIS IS THE CRITICAL DIAGNOSTIC SECTION ---
-  socket.on('audio-message', (channel, audioChunk) => {
-    // DIAGNOSTIC 1: Confirm the server received the message.
-    console.log(`DIAGNOSTIC: Received 'audio-message' from ${socket.id} for channel '${channel}'. Audio chunk size: ${audioChunk.length} bytes.`);
-
-    // DIAGNOSTIC 2: Confirm the server is attempting to broadcast.
-    socket.to(channel).broadcast.emit('audio-message-from-server', channel, audioChunk);
-    console.log(`DIAGNOSTIC: Broadcasting audio from ${socket.id} to everyone else in channel '${channel}'.`);
+  // GOING BACK TO THE SIMPLE OBJECT MODEL
+  socket.on('audio-message', (data) => {
+    // We expect `data` to be an object like { channel: 'General', audioChunk: <...audio...> }
+    if (data && data.channel && data.audioChunk) {
+      console.log(`Received audio for channel ${data.channel}. Broadcasting...`);
+      socket.to(data.channel).broadcast.emit('audio-message-from-server', data);
+    }
   });
-  // --- END OF DIAGNOSTIC SECTION ---
 
   socket.on('disconnect', (reason) => {
     console.log(`User ${socket.id} disconnected. Reason: ${reason}`);
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server is listening on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
