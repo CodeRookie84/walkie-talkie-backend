@@ -1,4 +1,4 @@
-// server.js
+// walkie-talkie-backend-main/server.js
 
 const express = require('express');
 const http = require('http');
@@ -36,10 +36,12 @@ io.on('connection', (socket) => {
 
   socket.on('audio-message', (data) => {
     if (data && data.channel && data.audioChunk) {
-      console.log(`Received audio for channel ${data.channel}. Broadcasting...`);
-      // --- THIS IS THE FIX ---
-      // Changed from socket.to(...).broadcast.emit to io.to(...).emit
-      io.to(data.channel).emit('audio-message-from-server', data);
+      console.log(`Received audio from ${socket.id} for channel ${data.channel}. Broadcasting...`);
+      // **THE FIX:** Use io.to() and send the socket.id to prevent echo on the client
+      io.to(data.channel).emit('audio-message-from-server', {
+        ...data,
+        senderId: socket.id // Add sender's ID
+      });
     }
   });
 
@@ -48,4 +50,4 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));  
+server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
