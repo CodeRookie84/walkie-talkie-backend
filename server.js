@@ -1,4 +1,4 @@
-// walkie-talkie-backend-main/server.js
+// server.js
 
 const express = require('express');
 const http = require('http');
@@ -19,29 +19,34 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3001;
+
 app.get('/', (req, res) => res.send('Walkie-talkie server is running!'));
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
+  // A client joins a channel (room)
   socket.on('join-channel', (channelId) => {
     socket.join(channelId);
     console.log(`User ${socket.id} JOINED channel: ${channelId}`);
   });
   
+  // A client leaves a channel (room)
   socket.on('leave-channel', (channelId) => {
     socket.leave(channelId);
     console.log(`User ${socket.id} LEFT channel: ${channelId}`);
   });
 
+  // A client sends an audio message for a specific channel
   socket.on('audio-message', (data) => {
+    // data should be { channel: 'channel-name', audioChunk: <...> }
     if (data && data.channel && data.audioChunk) {
-      console.log(`Received audio from ${socket.id} for channel ${data.channel}. Broadcasting...`);
-      // **THE FIX:** Use io.to() and send the socket.id to prevent echo on the client
-      io.to(data.channel).emit('audio-message-from-server', {
-        ...data,
-        senderId: socket.id // Add sender's ID
-      });
+      console.log(`Audio received for channel ${data.channel}. Broadcasting to that channel.`);
+      
+      // *** THIS IS THE CORE LOGIC ***
+      // Broadcast the audio to everyone in the specified channel EXCEPT the sender.
+      // This is the same logic as your original simple app, but targeted to a room.
+      socket.to(data.channel).broadcast.emit('audio-message-from-server', data);
     }
   });
 
