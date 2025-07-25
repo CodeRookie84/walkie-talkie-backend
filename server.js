@@ -1,3 +1,5 @@
+// server.js
+
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
@@ -9,7 +11,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "https://walkie-talkie-pwa.netlify.app",
+    origin: "https://walkie-talkie-pwa.netlify.app", // Your client's URL
     methods: ["GET", "POST"]
   },
   pingTimeout: 60000,
@@ -32,12 +34,12 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} LEFT channel: ${channelId}`);
   });
 
-  // GOING BACK TO THE SIMPLE OBJECT MODEL
   socket.on('audio-message', (data) => {
-    // We expect `data` to be an object like { channel: 'General', audioChunk: <...audio...> }
     if (data && data.channel && data.audioChunk) {
       console.log(`Received audio for channel ${data.channel}. Broadcasting...`);
-      socket.to(data.channel).broadcast.emit('audio-message-from-server', data);
+      // --- THIS IS THE FIX ---
+      // Changed from socket.to(...).broadcast.emit to io.to(...).emit
+      io.to(data.channel).emit('audio-message-from-server', data);
     }
   });
 
@@ -46,4 +48,4 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));  
